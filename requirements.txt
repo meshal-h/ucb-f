@@ -1,0 +1,4 @@
+numpy==1.26.2
+matplotlib==3.8.2
+gymnasium==0.29.1
+ray==2.8.1
