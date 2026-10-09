@@ -55,8 +55,8 @@ class MDP(gym.Env):
         # Reset time
         self.time = 0
         
-        # Initial state distribution
-        self.state = self.observation_space.sample()
+        # Initial state distribution (drawn from np.random so that a single seed controls all randomness)
+        self.state = np.random.randint(self.observation_space.n)
         
         return self.state
     
@@ -123,17 +123,17 @@ def value_iteration(env):
     # Initiate Q-values
     Q = np.zeros((H,S,A))
     
-    # Time, state, action loops
+    # Disturbance support
+    w = env.W.range
+    
+    # Time loop; the state, action, and disturbance loops are vectorized
     for h in range(H-1,-1,-1):
-        for s in range(S):
-            for a in range(A):
-                if h == H-1:
-                    Q[h,s,a] = env.R[h,s,a]
-                else:
-                    Q[h,s,a] = env.R[h,s,a]
-                    for i, w in enumerate(env.W.range):
-                        s_next = ( env.F[h,s,a] + w ) % S
-                        Q[h,s,a] += env.W.prob[h,i]*np.max(Q[h+1,s_next])
+        if h == H-1:
+            Q[h] = env.R[h]
+        else:
+            V_next = np.max(Q[h+1], axis=1)                     # [S]
+            s_next = ( env.F[h][:, :, np.newaxis] + w ) % S     # [S,A,W+1]
+            Q[h] = env.R[h] + V_next[s_next] @ env.W.prob[h]    # [S,A]
     
     return Q
 
@@ -149,17 +149,19 @@ def policy_evaluation(env, Q):
     # Initiate value function
     V = np.zeros((H,S))
     
-    # Time, state, action loops
+    # Disturbance support and state indices
+    w = env.W.range
+    states = np.arange(S)
+    
+    # Time loop; the state and disturbance loops are vectorized
     for h in range(H-1,-1,-1):
-        for s in range(S):
-            # Greedy action
-            a = np.argmax(Q[h,s])
-            if h == H-1:
-                V[h,s] = env.R[h,s,a]
-            else:
-                V[h,s] = env.R[h,s,a]
-                for i, w in enumerate(env.W.range):
-                    s_next = ( env.F[h,s,a] + w ) % S
-                    V[h,s] += env.W.prob[h,i]*V[h+1,s_next]
-        
+        # Greedy action for every state
+        a = np.argmax(Q[h], axis=1)                              # [S]
+        r = env.R[h, states, a]                                  # [S]
+        if h == H-1:
+            V[h] = r
+        else:
+            s_next = ( env.F[h, states, a][:, np.newaxis] + w ) % S   # [S,W+1]
+            V[h] = r + V[h+1][s_next] @ env.W.prob[h]
+    
     return V

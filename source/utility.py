@@ -21,7 +21,7 @@ def calculate_regret(env, K, algorithm, arg={}):
         algorithm : str
             {"UCB_H", "UCBVI", "UCB_f"}.
         arg : dict
-            Contain the value of ζ/2.
+            Contain the value of ζ/2, and optionally arg["seed"] (int) to make the run reproducible.
         ----------
     """
     
@@ -32,6 +32,15 @@ def calculate_regret(env, K, algorithm, arg={}):
             "K": K,
            }
     
+
+    #######################
+    ### Reproducibility ###
+    #######################
+
+    # Seed this run (initial states, disturbances, and model noise all come from np.random)
+    if arg.get("seed") is not None:
+        np.random.seed(arg["seed"])
+
 
     ########################
     ### Global arguments ###
@@ -67,7 +76,7 @@ def calculate_regret(env, K, algorithm, arg={}):
         
         # Counters
         N_1 = np.zeros((card["H"], card["S"], card["A"]))
-        N_2 = np.zeros((card["H"], card["S"], card["S"], card["A"]))
+        N_2 = np.zeros((card["H"], card["S"], card["A"], card["S"]), dtype=np.int32)  # [H,S,A,S]: contiguous rows, int32 halves memory
         
         # Rewards
         arg["r"] = np.copy(env.R)
